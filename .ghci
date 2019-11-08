@@ -1,0 +1,12 @@
+:set -fwarn-unused-binds -fwarn-unused-imports
+:set -isrc
+:set -Wall
+:set -Wincomplete-uni-patterns
+:set -Wincomplete-record-updates
+:set -Wcompat
+:set -Widentities
+:set -Wredundant-constraints      (ghc >= 8.0)
+:set -fhide-source-paths          (ghc >= 8.2.2)
+:set -Wmissing-export-lists       (ghc >= 8.4.1)
+:set -Wpartial-fields             (ghc >= 8.4.1
+:load Main

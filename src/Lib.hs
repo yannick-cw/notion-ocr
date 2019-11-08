@@ -1,26 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Lib
-  ( someFunc
-  )
-where
+module Lib where
 
 import           System.FilePath                ( FilePath )
 import           Data.UUID                      ( UUID )
-import           Network.URL                    ( URL )
 import           Data.Text                      ( Text
                                                 , append
                                                 )
 import           Data.Foldable                  ( traverse_ )
 import           Control.Monad.Except           ( MonadError(..) )
-import           Control.Exception              ( try )
 
 someFunc :: IO ()
 someFunc = putStrLn "someFunc"
 
-
-data NotionSearchRes = NotionSearchRes { imageURL :: URL, insertId :: UUID }
+data NotionSearchRes = NotionSearchRes { imageURL :: Text, insertId :: UUID }
 
 parsingErrorText :: Text -> Text
 parsingErrorText =
@@ -28,11 +22,11 @@ parsingErrorText =
     "Unfortunately if failed to parse the text in the Image, if you want to try again, replace this text with add_ocr again. Error was: "
 
 class Notion m where
-  searchNotion :: m [ NotionSearchRes ]
+  searchNotion :: m [NotionSearchRes]
   insertOCR :: Text -> UUID -> m ()
 
 class FS m where
-  saveFile :: URL -> m FilePath
+  downloadFile :: Text -> m FilePath
   deleteFile :: FilePath -> m ()
   getFile :: FilePath -> m Text
 
@@ -48,7 +42,7 @@ updateOcrs
 updateOcrs = searchNotion >>= traverse_
   (\searchRes -> catchError
     (do
-      imagePath <- saveFile $ imageURL searchRes
+      imagePath <- downloadFile $ imageURL searchRes
       ocrText   <- catchError (getOCR imagePath) (pure . parsingErrorText)
       deleteFile imagePath
       insertOCR ocrText $ insertId searchRes
@@ -57,4 +51,8 @@ updateOcrs = searchNotion >>= traverse_
   )
  where
   getOCR image =
-    ocrFile image >>= (\fileP -> getFile fileP <* deleteFile fileP)
+    ocrFile image >>= (\fileP -> getFile fileP `finally` deleteFile fileP)
+
+finally :: (MonadError e m) => m a -> m b -> m a
+finally comp cleanUp =
+  catchError comp (\err -> cleanUp >> throwError err) <* cleanUp
