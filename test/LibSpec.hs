@@ -69,7 +69,9 @@ instance FS TestApp where
   getFile path = do
     tell [FS $ "reading file " `append` pack path]
     shouldFail <- asks getFileFail
-    if shouldFail then throwError "FAIL" else return ( "File content of file for " `append` pack path)
+    if shouldFail
+      then throwError "FAIL"
+      else return ("File content of file for " `append` pack path)
 
 instance Tesseract TestApp where
   ocrFile path = do
@@ -105,7 +107,10 @@ spec = describe "updateOcrs" $ do
     :          ErrLog "FAIL"
     :          img2Commands
  where
-  tData       = TestData { tesseracFail = False, firstDownloadFail = False , getFileFail = False }
+  tData = TestData { tesseracFail      = False
+                   , firstDownloadFail = False
+                   , getFileFail       = False
+                   }
   basicRun    = writtenCommands tData
   ocrFail     = writtenCommands $ tData { tesseracFail = True }
   firstFail   = writtenCommands $ tData { firstDownloadFail = True }
