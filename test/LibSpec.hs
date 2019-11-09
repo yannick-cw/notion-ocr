@@ -10,15 +10,9 @@ import           Control.Monad.Except
 import           Control.Monad.State
 import           Control.Monad.Writer
 import           Control.Monad.Reader           ( MonadReader
-                                                , Reader
-                                                , ReaderT
-                                                , runReader
-                                                , ask
-                                                , runReaderT
                                                 , asks
                                                 )
 import           Data.Functor
-import           Data.Functor.Identity          ( runIdentity )
 import           Data.Text                      ( Text
                                                 , append
                                                 , unpack
@@ -28,10 +22,11 @@ import           Data.UUID                      ( UUID
                                                 , fromString
                                                 )
 import           Data.Maybe                     ( fromMaybe )
+import           Control.Monad.RWS
 
 data TestData = TestData { tesseracFail :: Bool , firstDownloadFail :: Bool , getFileFail :: Bool}
 
-newtype TestApp a = TestApp { inner :: ReaderT TestData ( ExceptT Text (StateT Int (Writer [TestCommand])) ) a }
+newtype TestApp a = TestApp { inner ::   ExceptT Text (RWS TestData [TestCommand] Int) a }
   deriving (Functor, Applicative, Monad, MonadWriter [TestCommand]
           , MonadError Text, MonadReader TestData, MonadState Int)
 
@@ -42,8 +37,10 @@ data TestCommand = NotionSearch
                  | ErrLog Text
   deriving (Show, Eq)
 
+testId1 :: UUID
 testId1 =
   fromMaybe undefined (fromString "1a648773-6394-4128-8059-f14a8936628b")
+testId2 :: UUID
 testId2 =
   fromMaybe undefined (fromString "e8f2d3cc-d8b5-4ba0-a3b5-41caee8b9419")
 
@@ -99,7 +96,7 @@ spec = describe "updateOcrs" $ do
     $               ocrFail
     `shouldContain` [FS "deleting file file path: img1"]
   it "deletes the ocr file, reading of ocr file fails"
-    $               getFileFail
+    $               getFailFails
     `shouldContain` [FS "deleting file OCR file for file path: img1"]
   it "processes the second file, when the first fails and logs the failure"
     $          firstFail
@@ -111,15 +108,15 @@ spec = describe "updateOcrs" $ do
                    , firstDownloadFail = False
                    , getFileFail       = False
                    }
-  basicRun    = writtenCommands tData
-  ocrFail     = writtenCommands $ tData { tesseracFail = True }
-  firstFail   = writtenCommands $ tData { firstDownloadFail = True }
-  getFileFail = writtenCommands $ tData { getFileFail = True }
+  basicRun     = writtenCommands tData
+  ocrFail      = writtenCommands $ tData { tesseracFail = True }
+  firstFail    = writtenCommands $ tData { firstDownloadFail = True }
+  getFailFails = writtenCommands $ tData { getFileFail = True }
   writtenCommands :: TestData -> [TestCommand]
-  writtenCommands testData = runIdentity $ execWriterT $ runStateT
-    (runExceptT $ runReaderT (inner updateOcrs) testData)
-    0
+  writtenCommands testData =
+    snd $ evalRWS (runExceptT $ inner updateOcrs) testData 0
 
+img1Commands :: [TestCommand]
 img1Commands =
   [ FS "loaded file img1"
   , Tesseract "In file file path: img1"
@@ -129,6 +126,7 @@ img1Commands =
   , NotionInsert "File content of file for OCR file for file path: img1" testId1
   ]
 
+img2Commands :: [TestCommand]
 img2Commands =
   [ FS "loaded file img2"
   , Tesseract "In file file path: img2"
@@ -137,4 +135,5 @@ img2Commands =
   , FS "deleting file file path: img2"
   , NotionInsert "File content of file for OCR file for file path: img2" testId2
   ]
+expectedCommands :: [TestCommand]
 expectedCommands = NotionSearch : img1Commands ++ img2Commands

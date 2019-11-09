@@ -7,6 +7,6 @@
 :set -Widentities
 :set -Wredundant-constraints      (ghc >= 8.0)
 :set -fhide-source-paths          (ghc >= 8.2.2)
-:set -Wmissing-export-lists       (ghc >= 8.4.1)
-:set -Wpartial-fields             (ghc >= 8.4.1
+
 :load Main
+:load LibSpec
