@@ -9,9 +9,7 @@ import           Lib
 import           Control.Monad.Except
 import           Control.Monad.State
 import           Control.Monad.Writer
-import           Control.Monad.Reader           ( MonadReader
-                                                , asks
-                                                )
+import           Control.Monad.Reader           ( MonadReader )
 import           Data.Functor
 import           Data.Text                      ( Text
                                                 , append
