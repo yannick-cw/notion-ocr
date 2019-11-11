@@ -2,10 +2,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
 
-module LibSpec where
+module UpdaterSpec where
 
 import           Test.Hspec
-import           Lib
+import           Updater
 import           Control.Monad.Except
 import           Control.Monad.State
 import           Control.Monad.Writer
@@ -21,6 +21,7 @@ import           Data.UUID                      ( UUID
                                                 )
 import           Data.Maybe                     ( fromMaybe )
 import           Control.Monad.RWS
+import           Console
 
 data TestData = TestData { tesseracFail :: Bool , firstDownloadFail :: Bool , getFileFail :: Bool}
 
@@ -74,8 +75,8 @@ instance Tesseract TestApp where
     shouldFail <- asks tesseracFail
     if shouldFail then throwError "FAIL" else return ("OCR file for " ++ path)
 
-instance ErrorLog TestApp where
-  logErr msg = tell [ErrLog msg]
+instance Console TestApp where
+  writeOut msg = tell [ErrLog msg]
 
 spec :: Spec
 spec = describe "updateOcrs" $ do

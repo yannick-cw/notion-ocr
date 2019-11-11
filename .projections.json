@@ -1,0 +1,8 @@
+{
+  "src/*.hs": {
+    "alternate": "test/{}Spec.hs"
+  },
+  "test/*Spec.hs": {
+    "alternate": "src/{}.hs"
+  }
+}
