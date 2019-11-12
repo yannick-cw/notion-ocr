@@ -6,6 +6,7 @@ module Tesseract
 where
 
 import           AppM
+import           CliParser
 import           Control.Monad.Reader
 import           Control.Monad.Except
 import           Data.Text                      ( Text
