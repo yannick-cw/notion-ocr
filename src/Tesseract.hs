@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Tesseract
   ( Tesseract(..)
@@ -16,7 +17,6 @@ import           Data.Text                      ( Text
 import           System.Process                 ( rawSystem )
 import           System.FilePath.Posix          ( (</>) )
 import           System.Exit                    ( ExitCode(..) )
-import           GHC.IO.Exception               ( ioe_description )
 
 class Tesseract m where
     ocrFile :: FilePath -> m FilePath
@@ -29,8 +29,11 @@ scanFile imagePath = do
   tmpDirPath <- asks path
   let outFilePath = tmpDirPath </> "out"
   sysCode <- liftIO $ try $ rawSystem "tesseract" [imagePath, outFilePath]
-  case (sysCode :: Either IOError ExitCode) of
-    (Left  ioErr      ) -> throwError $ pack $ ioe_description ioErr
-    (Right ExitSuccess) -> return outFilePath
-    (Right (ExitFailure _)) ->
-      throwError $ pack $ "OCR for scanning file " ++ imagePath ++ " failed."
+  either
+    liftIOErr
+    (\case
+      ExitSuccess -> return outFilePath
+      (ExitFailure _) ->
+        throwError $ pack $ "OCR for scanning file " ++ imagePath ++ " failed."
+    )
+    sysCode
