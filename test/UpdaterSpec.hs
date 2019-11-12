@@ -22,6 +22,9 @@ import           Data.UUID                      ( UUID
 import           Data.Maybe                     ( fromMaybe )
 import           Control.Monad.RWS
 import           Console
+import           FS
+import           Notion
+import           Tesseract
 
 data TestData = TestData { tesseracFail :: Bool , firstDownloadFail :: Bool , getFileFail :: Bool}
 

@@ -1,16 +1,16 @@
 library:
   source-dirs: src
   ghc-options:
-      - -Wall
-      - -Wcompat
-      - -Wincomplete-record-updates
-      - -Wincomplete-uni-patterns
-      - -Wredundant-constraints
-      - -fno-warn-orphans
-      - -fwarn-unused-imports
-      - -fwarn-unused-binds
-      - -isrc
-      - -Widentities
+  - -Wall
+  - -Wcompat
+  - -Wincomplete-record-updates
+  - -Wincomplete-uni-patterns
+  - -Wredundant-constraints
+  - -fno-warn-orphans
+  - -fwarn-unused-imports
+  - -fwarn-unused-binds
+  - -isrc
+  - -Widentities
 tests:
   notion-ocr-test:
     source-dirs: test
@@ -24,6 +24,7 @@ tests:
 copyright: 2019 Yannick Gladow
 maintainer: yannick.gladow@gmail.com
 dependencies:
+- process
 - hspec
 - mtl
 - text

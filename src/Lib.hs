@@ -10,7 +10,7 @@ import           Data.Text                      ( unpack )
 
 someFunc :: IO ()
 someFunc = do
-  res <- runReaderT (runExceptT $ unwrap runUpdate) (Args "")
+  res <- runReaderT (runExceptT $ unwrap runUpdate) (Args "" "")
   case res of
     Right _   -> return ()
     Left  err -> putStr (unpack err)
