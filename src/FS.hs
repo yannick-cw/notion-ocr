@@ -18,16 +18,9 @@ import           Network.HTTP.Simple            ( httpSource
                                                 , getResponseBody
                                                 , parseRequest
                                                 )
-import           Data.ByteString.Char8         as C8
-                                                ( pack )
-import           Network.HTTP.Client            ( Cookie(..)
-                                                , createCookieJar
-                                                , Request
-                                                , insertCookiesIntoRequest
-                                                )
-import           Data.Time.Clock
 import           Conduit
 import           System.FilePath.Posix          ( (</>) )
+import           Util.Utils                     ( addCookie )
 
 class FS m where
   downloadFile :: Text -> m FilePath
@@ -56,21 +49,3 @@ instance FS AppM where
     file <- liftIO $ try $ readFile filePath
     either liftIOErr (return . T.pack) file
 
-
-addCookie :: HasNotion r => Request -> ReaderT r IO Request
-addCookie req = do
-  token <- asks notionConf
-  now   <- liftIO getCurrentTime
-  let expires = addUTCTime (1440 * 3000) now
-      c       = Cookie "token_v2"
-                       (C8.pack $ T.unpack token)
-                       expires
-                       "notion.so"
-                       "/"
-                       now
-                       now
-                       False
-                       False
-                       True
-                       True
-  return $ fst $ insertCookiesIntoRequest req (createCookieJar [c]) now
