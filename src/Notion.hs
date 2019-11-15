@@ -58,9 +58,9 @@ instance Notion AppM where
   searchNotion = AppM search
   insertOCR ocrContent intoId = AppM (insertOcr ocrContent intoId)
 
-data SearchResult = SearchResult { results :: [UUID], recordMap :: RecordMap } deriving (Generic, Show)
+data SearchResult = SearchResult { results :: [UUID], recordMap :: Maybe RecordMap } deriving (Generic, Show)
 instance FromJSON SearchResult
-newtype RecordMap = RecordMap { block :: Map UUID Entry} deriving (Generic, Show)
+newtype RecordMap = RecordMap { block :: Maybe (Map UUID Entry) } deriving (Generic, Show)
 instance FromJSON RecordMap
 newtype Entry = Entry { value :: Value } deriving (Generic, Show)
 instance FromJSON Entry
@@ -91,10 +91,12 @@ searchImageId userSpaceId = do
   response <- asJSON r
   let pageRes = response ^. responseBody
       (ids, blockMap) =
-        ((results :: SearchResult -> [UUID]) pageRes, block $ recordMap pageRes)
-  return $ ids >>= (maybeToList . findImage blockMap)
+        ( (results :: SearchResult -> [UUID]) pageRes
+        , block =<< recordMap pageRes
+        )
+  return $ ids >>= (maybeToList . (blockMap >>=) . findImage)
  where
-  findImage recMap match = do
+  findImage match recMap = do
     searchMatchBlock <- M.lookup match recMap
     let parentId = parent_id $ value searchMatchBlock
     parentBlock <- M.lookup parentId recMap
