@@ -13,5 +13,5 @@ class Console m where
   writeOut :: Text -> m ()
 
 instance Console AppM where
-  writeOut = liftIO . putStr . unpack
+  writeOut = liftIO . putStrLn . unpack
 

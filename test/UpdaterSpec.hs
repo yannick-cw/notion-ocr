@@ -36,7 +36,7 @@ data TestCommand = NotionSearch
                  | NotionInsert Text UUID
                  | FS Text
                  | Tesseract Text
-                 | ErrLog Text
+                 | Written Text
   deriving (Show, Eq)
 
 testId1 :: UUID
@@ -79,7 +79,7 @@ instance Tesseract TestApp where
     if shouldFail then throwError "FAIL" else return ("OCR file for " ++ path)
 
 instance Console TestApp where
-  writeOut msg = tell [ErrLog msg]
+  writeOut msg = tell [Written msg]
 
 spec :: Spec
 spec = describe "updateOcrs" $ do
@@ -96,14 +96,20 @@ spec = describe "updateOcrs" $ do
     `shouldBe` [parsingErrorText "FAIL", parsingErrorText "FAIL"]
   it "deletes the img file, even when ocr fails"
     $               ocrFail
-    `shouldContain` [FS "deleting file file path: https://www.notion.so/image/http%3A%2F%2Fimg1.de"]
+    `shouldContain` [ FS
+                        "deleting file file path: https://www.notion.so/image/http%3A%2F%2Fimg1.de"
+                    ]
   it "deletes the ocr file, reading of ocr file fails"
     $               getFailFails
-    `shouldContain` [FS "deleting file OCR file for file path: https://www.notion.so/image/http%3A%2F%2Fimg1.de"]
+    `shouldContain` [ FS
+                        "deleting file OCR file for file path: https://www.notion.so/image/http%3A%2F%2Fimg1.de"
+                    ]
   it "processes the second file, when the first fails and logs the failure"
     $          firstFail
     `shouldBe` NotionSearch
-    :          ErrLog "FAIL"
+    :          Written "Found 2 images to process"
+    :          Written "Downloading image... - http://img1.de"
+    :          Written "FAIL"
     :          img2Commands
  where
   tData = TestData { tesseracFail      = False
@@ -120,22 +126,45 @@ spec = describe "updateOcrs" $ do
 
 img1Commands :: [TestCommand]
 img1Commands =
-  [ FS "loaded file https://www.notion.so/image/http%3A%2F%2Fimg1.de"
-  , Tesseract "In file file path: https://www.notion.so/image/http%3A%2F%2Fimg1.de"
-  , FS "reading file OCR file for file path: https://www.notion.so/image/http%3A%2F%2Fimg1.de"
-  , FS "deleting file OCR file for file path: https://www.notion.so/image/http%3A%2F%2Fimg1.de"
-  , FS "deleting file file path: https://www.notion.so/image/http%3A%2F%2Fimg1.de"
-  , NotionInsert "File content of file for OCR file for file path: https://www.notion.so/image/http%3A%2F%2Fimg1.de" testId1
+  [ Written "Found 2 images to process"
+  , Written "Downloading image... - http://img1.de"
+  , FS "loaded file https://www.notion.so/image/http%3A%2F%2Fimg1.de"
+  , Written "Downloaded image http://img1.de"
+  , Tesseract
+    "In file file path: https://www.notion.so/image/http%3A%2F%2Fimg1.de"
+  , Written
+    "Written tesseract output file to OCR file for file path: https://www.notion.so/image/http%3A%2F%2Fimg1.de"
+  , FS
+    "reading file OCR file for file path: https://www.notion.so/image/http%3A%2F%2Fimg1.de"
+  , FS
+    "deleting file OCR file for file path: https://www.notion.so/image/http%3A%2F%2Fimg1.de"
+  , Written "Parsed ocr text, now cleaning up...."
+  , FS
+    "deleting file file path: https://www.notion.so/image/http%3A%2F%2Fimg1.de"
+  , Written "Uploading ocr text to notion...."
+  , NotionInsert
+    "File content of file for OCR file for file path: https://www.notion.so/image/http%3A%2F%2Fimg1.de"
+    testId1
+  , Written "Succesfully processed image: http://img1.de"
   ]
 
 img2Commands :: [TestCommand]
 img2Commands =
-  [ FS "loaded file https://www.notion.so/image/img2"
+  [ Written "Downloading image... - img2"
+  , FS "loaded file https://www.notion.so/image/img2"
+  , Written "Downloaded image img2"
   , Tesseract "In file file path: https://www.notion.so/image/img2"
+  , Written
+    "Written tesseract output file to OCR file for file path: https://www.notion.so/image/img2"
   , FS "reading file OCR file for file path: https://www.notion.so/image/img2"
   , FS "deleting file OCR file for file path: https://www.notion.so/image/img2"
+  , Written "Parsed ocr text, now cleaning up...."
   , FS "deleting file file path: https://www.notion.so/image/img2"
-  , NotionInsert "File content of file for OCR file for file path: https://www.notion.so/image/img2" testId2
+  , Written "Uploading ocr text to notion...."
+  , NotionInsert
+    "File content of file for OCR file for file path: https://www.notion.so/image/img2"
+    testId2
+  , Written "Succesfully processed image: img2"
   ]
 expectedCommands :: [TestCommand]
 expectedCommands = NotionSearch : img1Commands ++ img2Commands
