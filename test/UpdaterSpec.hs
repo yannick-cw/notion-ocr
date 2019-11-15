@@ -89,8 +89,8 @@ spec = describe "updateOcrs" $ do
   it "writes a failure message into notion, when ocr fails"
     $          (   ocrFail
                >>= (\case
-                     NotionInsert content _ -> [content]
-                     _                      -> []
+                     NotionInsert c _ -> [c]
+                     _                -> []
                    )
                )
     `shouldBe` [parsingErrorText "FAIL", parsingErrorText "FAIL"]
