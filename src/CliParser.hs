@@ -12,7 +12,7 @@ where
 import           Options.Applicative
 import           Data.Text                      ( Text )
 
-data Args = Args { notionToken :: Text, tempPath :: FilePath, schedule :: Bool }
+data Args = Args { notionToken :: Text, tempPath :: FilePath, schedule :: Maybe Int }
 class HasTempDir a where
   path :: a  -> FilePath
 
@@ -50,8 +50,13 @@ argsParser =
           (long "tempDir" <> short 't' <> help
             "The temp dir to download the images to"
           )
-    <*> switch
-          (long "schedule" <> short 's' <> help
-            "Wether to schedule to run every 30 minutes or to just run once"
+    <*> optional
+          (option
+            auto
+            (  long "schedule"
+            <> short 's'
+            <> help "Can be used to schedule a run every x minutes."
+            <> metavar "Minutes"
+            )
           )
 

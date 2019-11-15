@@ -10,6 +10,8 @@ where
 
 import           Data.Text                      ( Text
                                                 , unpack
+                                                , pack
+                                                , append
                                                 )
 import           Data.UUID                      ( UUID
                                                 , fromString
@@ -28,14 +30,14 @@ import           Data.Aeson                     ( toJSON )
 import           Data.Aeson.Lens                ( key
                                                 , _Object
                                                 )
-import           Data.Maybe                     ( maybeToList
-                                                , listToMaybe
-                                                )
+import           Data.Maybe                     ( maybeToList )
 import           Data.Map                      as M
                                                 ( Map
                                                 , lookup
                                                 )
+import           Data.Witherable                ( witherM )
 import           Data.HashMap.Strict            ( keys )
+import           Data.Functor                   ( ($>) )
 import           Control.Lens
 import           GHC.Generics
 import           CliParser
@@ -75,11 +77,12 @@ instance ToJSON SearchQuery
 data FoundImage = FoundImage { imageId :: UUID, matchId :: UUID } deriving (Show)
 
 search :: HasNotion r => ExceptT Text (ReaderT r IO) [NotionSearchRes]
-search = loadUserSpace >>= searchImageId >>= traverse
+search = loadUserSpace >>= searchImageId >>= witherM
   (\case
-    (FoundImage imId mId) -> NotionSearchRes mId <$> loadImageUrl imId
+    (FoundImage imId mId) -> catchError
+      (Just . NotionSearchRes mId <$> loadImageUrl imId)
+      (\err -> liftIO $ putStrLn (unpack err ) $> Nothing)
   )
-
 
 searchImageId :: HasNotion r => UUID -> ExceptT Text (ReaderT r IO) [FoundImage]
 searchImageId userSpaceId = do
@@ -114,7 +117,7 @@ loadUserSpace = do
           .   key "recordMap"
           .   key "space"
           .   _Object
-          >>= listToMaybe
+          >>= headMay
           .   keys
           >>= fromString
           .   unpack
@@ -144,9 +147,12 @@ loadImageUrl imageRecordId = do
         headMay =<< headMay =<< source =<< (properties . value) =<< headMay
           ((results :: RecordResponse -> [Entry]) pageRes)
   case maybeImageUrl of
-    Just j  -> return j
-    Nothing -> throwError
-      "Notion responded not with expected Json, .recordMap.space.{id}"
+    Just j -> return j
+    Nothing ->
+      throwError
+        $        "Did not find Image for record with id "
+        `append` pack (toString imageRecordId)
+        `append` " aborting image"
 
 
 data Operation = Operation { id :: String, path :: [String], command :: String, table :: String, args :: [[Text]] } deriving (Generic)

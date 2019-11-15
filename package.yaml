@@ -24,6 +24,7 @@ tests:
 copyright: 2019 Yannick Gladow
 maintainer: yannick.gladow@gmail.com
 dependencies:
+- witherable
 - uri-encode
 - unordered-containers
 - containers
