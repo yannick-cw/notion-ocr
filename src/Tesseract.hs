@@ -32,7 +32,7 @@ scanFile imagePath = do
   either
     liftIOErr
     (\case
-      ExitSuccess -> return outFilePath
+      ExitSuccess -> return $ outFilePath ++ ".txt"
       (ExitFailure _) ->
         throwError $ pack $ "OCR for scanning file " ++ imagePath ++ " failed."
     )

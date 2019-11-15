@@ -2,13 +2,18 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase #-}
-module Notion where
+module Notion
+  ( Notion(..)
+  , NotionSearchRes(..)
+  )
+where
 
 import           Data.Text                      ( Text
                                                 , unpack
                                                 )
 import           Data.UUID                      ( UUID
                                                 , fromString
+                                                , toString
                                                 )
 import           AppM
 
@@ -35,55 +40,58 @@ import           Control.Lens
 import           GHC.Generics
 import           CliParser
 import           Util.Utils
-import           Safe                           ( lastMay )
+import           Safe                           ( lastMay
+                                                , headMay
+                                                )
 
 
 notionUrl :: String
 notionUrl = "https://www.notion.so/api/v3/"
 
-data NotionSearchRes = NotionSearchRes { imageURL :: Text, insertId :: UUID }
+data NotionSearchRes = NotionSearchRes { insertId :: UUID ,  imageURL :: Text } deriving ( Show)
 
 class Notion m where
   searchNotion :: m [NotionSearchRes]
   insertOCR :: Text -> UUID -> m ()
 
 instance Notion AppM where
-  searchNotion = pure []
-  insertOCR _ _ = pure ()
+  searchNotion = AppM search
+  insertOCR ocrContent intoId = AppM (insertOcr ocrContent intoId)
 
 data SearchResult = SearchResult { results :: [UUID], recordMap :: RecordMap } deriving (Generic, Show)
 instance FromJSON SearchResult
 newtype RecordMap = RecordMap { block :: Map UUID Entry} deriving (Generic, Show)
 instance FromJSON RecordMap
-newtype Entry = Entry { value :: Value}deriving (Generic, Show)
+newtype Entry = Entry { value :: Value } deriving (Generic, Show)
 instance FromJSON Entry
-data Value = Value { content :: Maybe [UUID], parent_id :: UUID} deriving (Generic, Show)
+data Value = Value { content :: Maybe [UUID], parent_id :: UUID, properties :: Maybe Source} deriving (Generic, Show)
 instance FromJSON Value
+newtype Source = Source { source :: Maybe [[Text]]} deriving (Generic, Show)
+instance FromJSON Source
 
 data SearchQuery = SearchQuery { query :: Text, table :: Text, id :: UUID, limit :: Int} deriving (Generic, Show)
 instance ToJSON SearchQuery
 
-testSearch :: IO ()
-testSearch = (putStr . show) =<< runReaderT
-  (runExceptT search)
-  (Args
-    "d493ddb9827dcc5404827319b8053d265bc5ccd9cc17497feef76d42f137de91d512e186b54c2268ac98daf3522fb530f6a2b365d083a3132b6e28baba309009c0c2aa05cb364a71f8a754892677"
-    ""
-    False
+data FoundImage = FoundImage { imageId :: UUID, matchId :: UUID } deriving (Show)
+
+search :: HasNotion r => ExceptT Text (ReaderT r IO) [NotionSearchRes]
+search = loadUserSpace >>= searchImageId >>= traverse
+  (\case
+    (FoundImage imId mId) -> NotionSearchRes mId <$> loadImageUrl imId
   )
 
-data FoundImage = FoundImage { imageId :: UUID, matchId :: UUID } deriving (Show)
-search :: HasNotion r => ExceptT Text (ReaderT r IO) [FoundImage]
-search = do
-  userSpaceId <- loadUserSpace
-  opts        <- lift cookieOpts
-  r           <- liftIO $ postWith
+
+searchImageId :: HasNotion r => UUID -> ExceptT Text (ReaderT r IO) [FoundImage]
+searchImageId userSpaceId = do
+  opts <- lift cookieOpts
+  r    <- liftIO $ postWith
     opts
     (notionUrl ++ "searchBlocks")
     (toJSON $ SearchQuery "add_ocr" "space" userSpaceId 1000)
   response <- asJSON r
-  let pageRes         = response ^. responseBody
-      (ids, blockMap) = (results pageRes, block $ recordMap pageRes)
+  let pageRes = response ^. responseBody
+      (ids, blockMap) =
+        ((results :: SearchResult -> [UUID]) pageRes, block $ recordMap pageRes)
   return $ ids >>= (maybeToList . findImage blockMap)
  where
   findImage recMap match = do
@@ -112,3 +120,51 @@ loadUserSpace = do
     Just j  -> return j
     Nothing -> throwError
       "Notion responded not with expected Json, .recordMap.space.{id}"
+
+data Request = Request { table :: String, id :: String} deriving (Generic)
+instance ToJSON Request
+newtype RecordReq = RecordReq { requests :: [ Request ]} deriving (Generic)
+instance ToJSON RecordReq
+
+newtype RecordResponse = RecordResponse { results :: [Entry]} deriving (Generic, Show)
+instance FromJSON RecordResponse
+
+loadImageUrl :: HasNotion r => UUID -> ExceptT Text (ReaderT r IO) Text
+loadImageUrl imageRecordId = do
+  opts <- lift cookieOpts
+  r    <- liftIO $ postWith
+    opts
+    (notionUrl ++ "getRecordValues")
+    (toJSON $ RecordReq [Request "block" (toString imageRecordId)])
+  response <- asJSON r
+  let pageRes = response ^. responseBody
+      maybeImageUrl =
+        headMay =<< headMay =<< source =<< (properties . value) =<< headMay
+          ((results :: RecordResponse -> [Entry]) pageRes)
+  case maybeImageUrl of
+    Just j  -> return j
+    Nothing -> throwError
+      "Notion responded not with expected Json, .recordMap.space.{id}"
+
+
+data Operation = Operation { id :: String, path :: [String], command :: String, table :: String, args :: [[Text]] } deriving (Generic)
+instance ToJSON Operation
+
+newtype Transaction = Transaction { operations :: [ Operation ] } deriving (Generic)
+instance ToJSON Transaction
+
+insertOcr :: HasNotion r => Text -> UUID -> ExceptT Text (ReaderT r IO) ()
+insertOcr text insertIntoId = do
+  opts <- lift cookieOpts
+  let transaction = Transaction { operations = contentPart }
+      contentPart = [addContent insertIntoId text]
+  void $ liftIO $ postWith opts
+                           (notionUrl ++ "submitTransaction")
+                           (toJSON transaction)
+ where
+  addContent opId opContent = Operation { Notion.id = toString opId
+                                        , path      = ["properties", "title"]
+                                        , command   = "set"
+                                        , table     = "block"
+                                        , args      = [[opContent]]
+                                        }
