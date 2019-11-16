@@ -81,7 +81,7 @@ search = loadUserSpace >>= searchImageId >>= witherM
   (\case
     (FoundImage imId mId) -> catchError
       (Just . NotionSearchRes mId <$> loadImageUrl imId)
-      (\err -> liftIO $ putStrLn (unpack err ) $> Nothing)
+      (\err -> liftIO $ putStrLn (unpack err) $> Nothing)
   )
 
 searchImageId :: HasNotion r => UUID -> ExceptT Text (ReaderT r IO) [FoundImage]

@@ -12,11 +12,12 @@ import           Control.Concurrent             ( ThreadId
                                                 , threadDelay
                                                 )
 import           Control.Monad                  ( void )
+import           System.IO.Temp                 ( withSystemTempDirectory )
 
 
 runMain :: IO ()
-runMain = do
-  args <- parseArgs
+runMain = withSystemTempDirectory "notion_ocr" $ \tmpDir -> do
+  args <- parseArgs tmpDir
   maybe (runUpdate args) (void . runScheduled (runUpdate args)) (schedule args)
  where
   runUpdate arguments = do
@@ -27,7 +28,10 @@ runMain = do
 
 runScheduled :: IO () -> Int -> IO ThreadId
 runScheduled job pauseTimeMinutes = do
-  putStrLn $ "Scheduled update to run in " ++ show pauseTimeMinutes ++ " minutes"
+  putStrLn
+    $  "Scheduled update to run in "
+    ++ show pauseTimeMinutes
+    ++ " minutes"
   threadDelay (pauseTimeMinutes * 60 * 1000 * 1000)
   job
   runScheduled job pauseTimeMinutes

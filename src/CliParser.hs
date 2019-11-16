@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module CliParser
@@ -12,7 +11,7 @@ where
 import           Options.Applicative
 import           Data.Text                      ( Text )
 
-data Args = Args { notionToken :: Text, tempPath :: FilePath, schedule :: Maybe Int }
+data Args = Args { tempPath :: FilePath, notionToken :: Text,  schedule :: Maybe Int }
 class HasTempDir a where
   path :: a  -> FilePath
 
@@ -25,11 +24,11 @@ class HasNotion r where
 instance HasNotion Args where
   notionConf = notionToken
 
-parseArgs :: IO Args
-parseArgs = execParser opts
+parseArgs :: FilePath -> IO Args
+parseArgs tmpDir = execParser opts
  where
   opts = info
-    (argsParser <**> helper)
+    (argsParser tmpDir <**> helper)
     (  fullDesc
     <> progDesc
          "Add ocr (optical character recognition) to your Notion images"
@@ -37,18 +36,14 @@ parseArgs = execParser opts
     )
 
 
-argsParser :: Parser Args
-argsParser =
-  Args
+argsParser :: FilePath -> Parser Args
+argsParser tmpDir =
+  Args tmpDir
     <$> strOption
           (  long "token"
-          <> short 'n'
+          <> short 't'
           <> help
                "Your notion token, found in the token_v2 cookie when you open notion in the browser"
-          )
-    <*> strOption
-          (long "tempDir" <> short 't' <> help
-            "The temp dir to download the images to"
           )
     <*> optional
           (option
