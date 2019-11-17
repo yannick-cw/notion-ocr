@@ -10,13 +10,11 @@ This tool allows you to add the words `add_ocr` below any image in your notion a
 
 ### Install
 
-#### Prerequisites
+#### Prerequisites Tesseract
 
 You'll need [tesseract](https://github.com/tesseract-ocr/tesseract), as it is used for doing the actual ocr in the image.
 
-#### Mac
-
-Install tesseract first:
+##### Mac
 
 ```
 brew install tesseract
@@ -24,7 +22,19 @@ brew install tesseract
 
 Without brew check [installing](https://github.com/yannick-cw/notion-ocr/releases) tesseract.
 
+##### Linux
+
+```
+sudo apt install tesseract-ocr
+```
+
+Without apt check [installing](https://github.com/yannick-cw/notion-ocr/releases) tesseract.
+
 Make sure `tesseract` works as a command in the terminal!
+
+#### Install notion-ocr
+
+##### Mac
 
 With Homebrew:
 
@@ -41,21 +51,21 @@ wget https://github.com/yannick-cw/notion-ocr/releases/download/v0.1/notion-ocr-
   && ./notion-ocr-0.1_mac/bin/notion-ocr --help
 ```
 
+You should see this now
+
+```bash
+notion-ocr - enrich images with the text in the image
+...
+```
+
+You can run it now from the current directory with
+`./notion-ocr-0.1_mac/bin/notion-ocr`
+
 Or just get the latest release from [releases](https://github.com/yannick-cw/notion-ocr/releases).
 
 You can also move the executable into your `PATH` to make running it more convenient.
 
-#### Linux
-
-Install tesseract first, e.g.:
-
-```
-sudo apt install tesseract-ocr
-```
-
-Without apt check [installing](https://github.com/yannick-cw/notion-ocr/releases) tesseract.
-
-Make sure `tesseract` works as a command in the terminal!
+##### Linux
 
 With wget:
 
@@ -65,6 +75,16 @@ wget https://github.com/yannick-cw/notion-ocr/releases/download/v0.1/notion-ocr-
   && chmod +x notion-ocr-0.1/notion-ocr \
   && ./notion-ocr-0.1/notion-ocr --help
 ```
+
+You should see this now
+
+```bash
+notion-ocr - enrich images with the text in the image
+...
+```
+
+You can run it now from the current directory with
+`./notion-ocr-0.1/notion-ocr`
 
 Or just get the latest release from [releases](https://github.com/yannick-cw/notion-ocr/releases).
 
