@@ -13,6 +13,7 @@ import           Data.Text                     as T
                                                 , unpack
                                                 , pack
                                                 , append
+                                                , toLower
                                                 )
 import           Data.UUID                      ( UUID
                                                 , fromString
@@ -72,7 +73,7 @@ newtype Entry = Entry { value :: Value } deriving (Generic, Show)
 instance FromJSON Entry
 data Value = Value { content :: Maybe [UUID], parent_id :: UUID, properties :: Maybe Source} deriving (Generic, Show)
 instance FromJSON Value
-newtype Source = Source { source :: Maybe [[Text]]} deriving (Generic, Show)
+data Source = Source { source :: Maybe [[Text]], title :: Maybe [[Text]] } deriving (Generic, Show)
 instance FromJSON Source
 
 data SearchQuery = SearchQuery { query :: Text, table :: Text, id :: UUID, limit :: Int} deriving (Generic, Show)
@@ -106,6 +107,9 @@ searchImageId userSpaceId = do
  where
   findImage match recMap = do
     searchMatchBlock <- M.lookup match recMap
+    guard $ all
+      ((== "add_ocr") . toLower)
+      (headMay =<< headMay =<< title =<< properties (value searchMatchBlock))
     let parentId = parent_id $ value searchMatchBlock
     parentBlock <- M.lookup parentId recMap
     image <- content (value parentBlock) >>= (lastMay . takeWhile (/= match))
