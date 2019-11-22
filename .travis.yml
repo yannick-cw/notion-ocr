@@ -62,22 +62,20 @@ install:
     set -ex
     # Build the dependencies
     stack --no-terminal --install-ghc $ARGS test --bench --only-dependencies
-    set +ex
 
 script:
   - |
     set -ex
     stack --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps
-
-before_deploy:
-  - ./scripts/release.sh
+    stack --no-terminal build --force-dirty
+    ./scripts/release.sh
 
 deploy:
   provider: releases
   skip_cleanup: true
   api_key:
     secure: i6jj3g/acPbhVITY/iMJIGwPIQR/S5DdtHemxFFoRFUMCAKHrZVaSgbv2AcZirJNDbJEUU/6lqwKf3BnLSRQyGRzvi/7ZK3lzJ4/HjIWNM+x6eF5J/EhCjQEtrFlUDfC/mhHLO6jiJkoWqQ1a9Gy+EWcDugEfkFGZsMKlqM891x3ai79F4UZz7FmCULb+aJ4U/OZiQSTh1Mc+ieS2IGiz+mUVu6qR7bja00fn/RT5P1HdTlOi63te3mmklvoCNayEJ17QDEiOojUTllL40fFGq1415fJhrOsHcUSo2nE7L4Hnn0FN5u5aRf38j1G6yKJ5BYRpUDk/YER32umMX0g4NdOnT1ZKzHUV1yCFTfaBseJAqrq9MF1oggBiFJ+i8G6SrjMVkizOaNedRghhiBRyTJRrGkXaeIbgNBGZ1rgcjCRNft7yhRPvNglE8w347u+bsx0G5t5J2OlgTAtQYzACGSnw/dKURbk39Zi3RVB/A8HwVrgG2CMDKKQRbUCjQKsoxpDoyZ5d5U1yswdg8IiI2JElJxzzcyzoZ3wMIp0fWt3wbp8pNfp3usphDbgP4TIfuW8Qj4q/Ikq+BgXe8tgswjNlXqWtsLQ01fkIvPFO9VZNwhPk1Zop664XTkmQgT/m4eyQdmd3P2xXzK0KqJnW29QQkqhH1A8jAwWVFB29lA=
-    file: release/*
-    on:
-      repo: yannick-cw/notion-ocr
-      tags: true
+  file: release/*
+  file_glob: true
+  on:
+    tags: true
