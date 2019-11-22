@@ -45,10 +45,10 @@ brew install yannick-cw/homebrew-tap/notion-ocr
 With wget:
 
 ```
-wget https://github.com/yannick-cw/notion-ocr/releases/download/v0.1/notion-ocr-0.1_mac.zip \
-  && unzip notion-ocr-0.1_mac.zip \
-  && chmod +x notion-ocr-0.1_mac/bin/notion-ocr \
-  && ./notion-ocr-0.1_mac/bin/notion-ocr --help
+wget https://github.com/yannick-cw/notion-ocr/releases/download/0.1.1/notion-ocr_mac.zip \
+  && unzip notion-ocr_mac.zip \
+  && chmod +x notion-ocr \
+  && ./notion-ocr --help
 ```
 
 You should see this now
@@ -70,10 +70,10 @@ You can also move the executable into your `PATH` to make running it more conven
 With wget:
 
 ```
-wget https://github.com/yannick-cw/notion-ocr/releases/download/v0.1/notion-ocr-0.1_x86_64-linux.zip \
-  && unzip notion-ocr-0.1_x86_64-linux.zip \
-  && chmod +x notion-ocr-0.1/notion-ocr \
-  && ./notion-ocr-0.1/notion-ocr --help
+wget https://github.com/yannick-cw/notion-ocr/releases/download/0.1.1/notion-ocr_x86_64-linux.zip \
+  && unzip notion-ocr_x86_64-linux.zip \
+  && chmod +x notion-ocr \
+  && ./notion-ocr --help
 ```
 
 You should see this now
@@ -84,7 +84,7 @@ notion-ocr - enrich images with the text in the image
 ```
 
 You can run it now from the current directory with
-`./notion-ocr-0.1/notion-ocr`
+`./notion-ocr`
 
 Or just get the latest release from [releases](https://github.com/yannick-cw/notion-ocr/releases).
 
