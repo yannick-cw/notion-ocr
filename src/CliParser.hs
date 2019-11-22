@@ -5,13 +5,17 @@ module CliParser
   , parseArgs
   , HasNotion(..)
   , HasTempDir(..)
+  , CliOpts(..)
   )
 where
 
 import           Options.Applicative
 import           Data.Text                      ( Text )
 
+data CliOpts = CliVersion | CliArgs  Text ( Maybe Int ) Bool
+
 data Args = Args { tempPath :: FilePath, notionToken :: Text,  schedule :: Maybe Int, verbose :: Bool }
+
 class HasTempDir a where
   path :: a  -> FilePath
 
@@ -24,11 +28,11 @@ class HasNotion r where
 instance HasNotion Args where
   notionConf = notionToken
 
-parseArgs :: FilePath -> IO Args
-parseArgs tmpDir = execParser opts
+parseArgs :: IO CliOpts
+parseArgs = execParser opts
  where
   opts = info
-    (argsParser tmpDir <**> helper)
+    (argsParser <**> helper)
     (  fullDesc
     <> progDesc
          "Add ocr (optical character recognition) to your Notion images"
@@ -36,9 +40,9 @@ parseArgs tmpDir = execParser opts
     )
 
 
-argsParser :: FilePath -> Parser Args
-argsParser tmpDir =
-  Args tmpDir
+argsParser :: Parser CliOpts
+argsParser =
+  (   CliArgs
     <$> strOption
           (  long "token"
           <> short 't'
@@ -55,4 +59,7 @@ argsParser tmpDir =
             )
           )
     <*> switch (long "verbose" <> short 'v' <> help "Log extra information")
+    )
+    <|> (CliVersion <$ switch (long "version" <> help "Show the version number")
+        )
 

@@ -13,12 +13,25 @@ import           Control.Concurrent             ( ThreadId
                                                 )
 import           Control.Monad                  ( void )
 import           System.IO.Temp                 ( withSystemTempDirectory )
+import           Paths_notion_ocr               ( version )
+import           Data.Version                   ( showVersion )
 
 
 runMain :: IO ()
 runMain = withSystemTempDirectory "notion_ocr" $ \tmpDir -> do
-  args <- parseArgs tmpDir
-  maybe (runUpdate args) (void . runScheduled (runUpdate args)) (schedule args)
+  cliArgs <- parseArgs
+  case cliArgs of
+    CliVersion -> putStrLn $ "notion-ocr " ++ showVersion version
+    CliArgs tk s v ->
+      let
+        args = Args { tempPath    = tmpDir
+                    , notionToken = tk
+                    , schedule    = s
+                    , verbose     = v
+                    }
+      in  maybe (runUpdate args)
+                (void . runScheduled (runUpdate args))
+                (schedule args)
  where
   runUpdate arguments = do
     res <- runReaderT (runExceptT $ unwrap updateOcrs) arguments
