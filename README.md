@@ -115,3 +115,4 @@ You can also move the executable into your `PATH` to make running it more conven
 - Does not yet work with handwriting
 - Small images might lead to bad results
 - Not sure if other languages beside English work right now
+- when you get `Failed loading language `eng` you might need to install the tesseract eng language pack`, e.g. on Arch I needed to run `pacman -S tesseract-data-eng`
