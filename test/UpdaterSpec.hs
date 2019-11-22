@@ -37,6 +37,7 @@ data TestCommand = NotionSearch
                  | FS Text
                  | Tesseract Text
                  | Written Text
+                 | Verbose Text
   deriving (Show, Eq)
 
 testId1 :: UUID
@@ -80,6 +81,7 @@ instance Tesseract TestApp where
 
 instance Console TestApp where
   writeOut msg = tell [Written msg]
+  verboseOut msg = tell [Verbose msg]
 
 spec :: Spec
 spec = describe "updateOcrs" $ do

@@ -8,7 +8,8 @@ module Notion
   )
 where
 
-import           Data.Text                      ( Text
+import           Data.Text                     as T
+                                                ( Text
                                                 , unpack
                                                 , pack
                                                 , append
@@ -17,8 +18,10 @@ import           Data.UUID                      ( UUID
                                                 , fromString
                                                 , toString
                                                 )
+import           Data.ByteString.Lazy.Char8    as C
+                                                ( unpack )
 import           AppM
-
+import           Console
 import           Network.Wreq
 import           Control.Monad.Reader
 import           Control.Monad.Except
@@ -26,7 +29,9 @@ import           Data.Aeson.Types               ( ToJSON
                                                 , FromJSON(..)
                                                 , emptyObject
                                                 )
+import           Data.ByteString.Lazy.Internal  ( ByteString )
 import           Data.Aeson                     ( toJSON )
+import           Data.Aeson.Encode.Pretty       ( encodePretty )
 import           Data.Aeson.Lens                ( key
                                                 , _Object
                                                 )
@@ -40,7 +45,6 @@ import           Data.HashMap.Strict            ( keys )
 import           Data.Functor                   ( ($>) )
 import           Control.Lens
 import           GHC.Generics
-import           CliParser
 import           Util.Utils
 import           Safe                           ( lastMay
                                                 , headMay
@@ -57,8 +61,8 @@ class Notion m where
   insertOCR :: Text -> UUID -> m ()
 
 instance Notion AppM where
-  searchNotion = AppM search
-  insertOCR ocrContent intoId = AppM (insertOcr ocrContent intoId)
+  searchNotion = search
+  insertOCR    = insertOcr
 
 data SearchResult = SearchResult { results :: [UUID], recordMap :: Maybe RecordMap } deriving (Generic, Show)
 instance FromJSON SearchResult
@@ -76,21 +80,22 @@ instance ToJSON SearchQuery
 
 data FoundImage = FoundImage { imageId :: UUID, matchId :: UUID } deriving (Show)
 
-search :: HasNotion r => ExceptT Text (ReaderT r IO) [NotionSearchRes]
+search :: AppM [NotionSearchRes]
 search = loadUserSpace >>= searchImageId >>= witherM
   (\case
     (FoundImage imId mId) -> catchError
       (Just . NotionSearchRes mId <$> loadImageUrl imId)
-      (\err -> liftIO $ putStrLn (unpack err) $> Nothing)
+      (\err -> liftIO $ putStrLn (T.unpack err) $> Nothing)
   )
 
-searchImageId :: HasNotion r => UUID -> ExceptT Text (ReaderT r IO) [FoundImage]
+searchImageId :: UUID -> AppM [FoundImage]
 searchImageId userSpaceId = do
-  opts <- lift cookieOpts
-  r    <- liftIO $ postWith
-    opts
-    (notionUrl ++ "searchBlocks")
-    (toJSON $ SearchQuery "add_ocr" "space" userSpaceId 1000)
+  opts <- AppM $ lift cookieOpts
+  let url   = notionUrl ++ "searchBlocks"
+      sBody = toJSON $ SearchQuery "add_ocr" "space" userSpaceId 1000
+  logRequest url sBody
+  r <- liftIO $ postWith opts url sBody
+  logResponse r
   response <- asJSON r
   let pageRes = response ^. responseBody
       (ids, blockMap) =
@@ -107,10 +112,13 @@ searchImageId userSpaceId = do
     return $ FoundImage { imageId = image, matchId = match }
 
 
-loadUserSpace :: HasNotion r => ExceptT Text (ReaderT r IO) UUID
+loadUserSpace :: AppM UUID
 loadUserSpace = do
-  opts <- lift cookieOpts
-  r    <- liftIO $ postWith opts (notionUrl ++ "loadUserContent") emptyObject
+  opts <- AppM $ lift cookieOpts
+  let url = notionUrl ++ "loadUserContent"
+  logRequest url emptyObject
+  r <- liftIO $ postWith opts url emptyObject
+  logResponse r
   let maybeId =
         r
           ^?  responseBody
@@ -120,7 +128,7 @@ loadUserSpace = do
           >>= headMay
           .   keys
           >>= fromString
-          .   unpack
+          .   T.unpack
   case maybeId of
     Just j  -> return j
     Nothing -> throwError
@@ -134,13 +142,14 @@ instance ToJSON RecordReq
 newtype RecordResponse = RecordResponse { results :: [Entry]} deriving (Generic, Show)
 instance FromJSON RecordResponse
 
-loadImageUrl :: HasNotion r => UUID -> ExceptT Text (ReaderT r IO) Text
+loadImageUrl :: UUID -> AppM Text
 loadImageUrl imageRecordId = do
-  opts <- lift cookieOpts
-  r    <- liftIO $ postWith
-    opts
-    (notionUrl ++ "getRecordValues")
-    (toJSON $ RecordReq [Request "block" (toString imageRecordId)])
+  opts <- AppM $ lift cookieOpts
+  let url   = notionUrl ++ "getRecordValues"
+      jBody = toJSON $ RecordReq [Request "block" (toString imageRecordId)]
+  logRequest url jBody
+  r <- liftIO $ postWith opts url jBody
+  logResponse r
   response <- asJSON r
   let pageRes = response ^. responseBody
       maybeImageUrl =
@@ -161,14 +170,15 @@ instance ToJSON Operation
 newtype Transaction = Transaction { operations :: [ Operation ] } deriving (Generic)
 instance ToJSON Transaction
 
-insertOcr :: HasNotion r => Text -> UUID -> ExceptT Text (ReaderT r IO) ()
+insertOcr :: Text -> UUID -> AppM ()
 insertOcr text insertIntoId = do
-  opts <- lift cookieOpts
-  let transaction = Transaction { operations = contentPart }
+  opts <- AppM $ lift cookieOpts
+  let transaction = toJSON $ Transaction { operations = contentPart }
       contentPart = [addContent insertIntoId text]
-  void $ liftIO $ postWith opts
-                           (notionUrl ++ "submitTransaction")
-                           (toJSON transaction)
+  let url = notionUrl ++ "submitTransaction"
+  logRequest url transaction
+  r <- liftIO $ postWith opts url transaction
+  logResponse r
  where
   addContent opId opContent = Operation { Notion.id = toString opId
                                         , path      = ["properties", "title"]
@@ -176,3 +186,15 @@ insertOcr text insertIntoId = do
                                         , table     = "block"
                                         , args      = [[opContent]]
                                         }
+
+
+logRequest :: ToJSON a => String -> a -> AppM ()
+logRequest url body = verboseOut (pack $ "Request Url: " ++ url)
+  *> verboseOut (pack $ "Request Body: " ++ C.unpack (encodePretty body))
+
+logResponse :: Response ByteString -> AppM ()
+logResponse res = verboseOut (pack $ "Response Status Code: " ++ code)
+  *> verboseOut (pack $ "Response Body: " ++ body)
+ where
+  code = show $ res ^. responseStatus
+  body = C.unpack $ res ^. responseBody

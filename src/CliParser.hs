@@ -11,7 +11,7 @@ where
 import           Options.Applicative
 import           Data.Text                      ( Text )
 
-data Args = Args { tempPath :: FilePath, notionToken :: Text,  schedule :: Maybe Int }
+data Args = Args { tempPath :: FilePath, notionToken :: Text,  schedule :: Maybe Int, verbose :: Bool }
 class HasTempDir a where
   path :: a  -> FilePath
 
@@ -54,4 +54,5 @@ argsParser tmpDir =
             <> metavar "Minutes"
             )
           )
+    <*> switch (long "verbose" <> short 'v' <> help "Log extra information")
 

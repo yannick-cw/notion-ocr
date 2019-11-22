@@ -33,6 +33,8 @@ dependencies:
 - lens-aeson
 - random
 - aeson
+- aeson-pretty
+- exceptions
 - lens
 - wreq
 - bytestring
