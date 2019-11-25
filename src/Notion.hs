@@ -27,8 +27,13 @@ import           Network.Wreq
 import           Control.Monad.Reader
 import           Control.Monad.Except
 import           Data.Aeson.Types               ( ToJSON
+                                                , sumEncoding
+                                                , SumEncoding(..)
                                                 , FromJSON(..)
                                                 , emptyObject
+                                                , Value
+                                                , genericParseJSON
+                                                , defaultOptions
                                                 )
 import           Data.ByteString.Lazy.Internal  ( ByteString )
 import           Data.Aeson                     ( toJSON )
@@ -69,12 +74,15 @@ data SearchResult = SearchResult { results :: [UUID], recordMap :: Maybe RecordM
 instance FromJSON SearchResult
 newtype RecordMap = RecordMap { block :: Maybe (Map UUID Entry) } deriving (Generic, Show)
 instance FromJSON RecordMap
-newtype Entry = Entry { value :: Value } deriving (Generic, Show)
+newtype Entry = Entry { value :: Val } deriving (Generic, Show)
 instance FromJSON Entry
-data Value = Value { content :: Maybe [UUID], parent_id :: UUID, properties :: Maybe Source} deriving (Generic, Show)
-instance FromJSON Value
-data Source = Source { source :: Maybe [[Text]], title :: Maybe [[Text]] } deriving (Generic, Show)
-instance FromJSON Source
+data Val = Val { content :: Maybe [UUID], parent_id :: UUID, properties :: Maybe Properties} deriving (Generic, Show)
+instance FromJSON Val
+data Properties = Properties { source :: Maybe [[Source]], title :: Maybe [[Text]] } deriving (Generic, Show)
+instance FromJSON Properties
+data Source = TextContent Text | Other Value deriving (Generic, Show)
+instance FromJSON Source where
+  parseJSON = genericParseJSON (defaultOptions { sumEncoding = UntaggedValue })
 
 data SearchQuery = SearchQuery { query :: Text, table :: Text, id :: UUID, limit :: Int} deriving (Generic, Show)
 instance ToJSON SearchQuery
@@ -160,8 +168,8 @@ loadImageUrl imageRecordId = do
         headMay =<< headMay =<< source =<< (properties . value) =<< headMay
           ((results :: RecordResponse -> [Entry]) pageRes)
   case maybeImageUrl of
-    Just j -> return j
-    Nothing ->
+    Just (TextContent j) -> return j
+    _ ->
       throwError
         $        "Did not find Image for record with id "
         `append` pack (toString imageRecordId)
