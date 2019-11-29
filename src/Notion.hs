@@ -89,8 +89,11 @@ instance ToJSON SearchQuery
 
 data FoundImage = FoundImage { imageId :: UUID, matchId :: UUID } deriving (Show)
 
+flatTraverse :: (Traversable t, Monad t, Applicative f) => (a -> f (t b)) -> t a -> f (t b)
+flatTraverse f fa =  join <$> traverse f fa
+
 search :: AppM [NotionSearchRes]
-search = loadUserSpace >>= searchImageId >>= witherM
+search = loadUserSpaces >>= flatTraverse searchImageId >>= witherM
   (\case
     (FoundImage imId mId) -> catchError
       (Just . NotionSearchRes mId <$> loadImageUrl imId)
@@ -124,27 +127,14 @@ searchImageId userSpaceId = do
     return $ FoundImage { imageId = image, matchId = match }
 
 
-loadUserSpace :: AppM UUID
-loadUserSpace = do
+loadUserSpaces :: AppM [ UUID ]
+loadUserSpaces = do
   opts <- AppM $ lift cookieOpts
   let url = notionUrl ++ "loadUserContent"
   logRequest url emptyObject
   r <- liftIO $ postWith opts url emptyObject
   logResponse r
-  let maybeId =
-        r
-          ^?  responseBody
-          .   key "recordMap"
-          .   key "space"
-          .   _Object
-          >>= headMay
-          .   keys
-          >>= fromString
-          .   T.unpack
-  case maybeId of
-    Just j  -> return j
-    Nothing -> throwError
-      "Notion responded not with expected Json, .recordMap.space.{id}"
+  return $ maybeToList (r ^? responseBody . key "recordMap" . key "space" . _Object) >>= keys >>= maybeToList .   fromString .   T.unpack 
 
 data Request = Request { table :: String, id :: String} deriving (Generic)
 instance ToJSON Request
