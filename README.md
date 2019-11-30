@@ -45,7 +45,7 @@ brew install yannick-cw/homebrew-tap/notion-ocr
 With wget:
 
 ```
-wget https://github.com/yannick-cw/notion-ocr/releases/download/0.1.4/notion-ocr_mac.zip \
+wget https://github.com/yannick-cw/notion-ocr/releases/download/0.1.5/notion-ocr_mac.zip \
   && unzip notion-ocr_mac.zip \
   && chmod +x notion-ocr \
   && ./notion-ocr --help
@@ -70,7 +70,7 @@ You can also move the executable into your `PATH` to make running it more conven
 With wget:
 
 ```
-wget https://github.com/yannick-cw/notion-ocr/releases/download/0.1.4/notion-ocr_x86_64-linux.zip \
+wget https://github.com/yannick-cw/notion-ocr/releases/download/0.1.5/notion-ocr_x86_64-linux.zip \
   && unzip notion-ocr_x86_64-linux.zip \
   && chmod +x notion-ocr \
   && ./notion-ocr --help
