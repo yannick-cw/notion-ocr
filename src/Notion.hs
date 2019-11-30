@@ -80,9 +80,9 @@ newtype Entry = Entry { value :: Val } deriving (Generic, Show)
 instance FromJSON Entry
 data Val = Val { content :: Maybe [UUID], parent_id :: UUID, properties :: Maybe Properties} deriving (Generic, Show)
 instance FromJSON Val
-data Properties = Properties { source :: Maybe [[Source]], title :: Maybe [[Text]] } deriving (Generic, Show)
+data Properties = Properties { source :: Maybe [[Source]], title :: Maybe [[Source]] } deriving (Generic, Show)
 instance FromJSON Properties
-data Source = TextContent Text | Other Value deriving (Generic, Show)
+data Source = TextContent Text | Other Value deriving (Generic, Show, Eq)
 instance FromJSON Source where
   parseJSON = genericParseJSON (defaultOptions { sumEncoding = UntaggedValue })
 
@@ -126,7 +126,10 @@ searchImageId userSpaceId = do
   findImage match recMap = do
     searchMatchBlock <- M.lookup match recMap
     guard $ all
-      ((== "add_ocr") . toLower)
+      (\case
+        TextContent cnt | toLower cnt == "add_ocr" -> True
+        _ -> False
+      )
       (headMay =<< headMay =<< title =<< properties (value searchMatchBlock))
     let parentId = parent_id $ value searchMatchBlock
     parentBlock <- M.lookup parentId recMap
@@ -187,9 +190,7 @@ insertOcr text insertIntoId = do
   let transaction = toJSON $ Transaction { operations = contentPart }
       contentPart = [addContent insertIntoId text]
   let url = notionUrl ++ "submitTransaction"
-  logRequest url transaction
-  r <- liftIO $ postWith opts url transaction
-  logResponse r
+  void (reqRes url transaction opts :: AppM (Response Value))
  where
   addContent opId opContent = Operation { Notion.id = toString opId
                                         , path      = ["properties", "title"]
