@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase #-}
@@ -50,6 +51,7 @@ import           Data.Witherable                ( witherM )
 import           Data.HashMap.Strict            ( keys )
 import           Data.Functor                   ( ($>) )
 import           Control.Lens
+import           Control.Exception              ( try )
 import           GHC.Generics
 import           Util.Utils
 import           Safe                           ( lastMay
@@ -89,26 +91,31 @@ instance ToJSON SearchQuery
 
 data FoundImage = FoundImage { imageId :: UUID, matchId :: UUID } deriving (Show)
 
-flatTraverse :: (Traversable t, Monad t, Applicative f) => (a -> f (t b)) -> t a -> f (t b)
-flatTraverse f fa =  join <$> traverse f fa
+flatTraverse
+  :: (Traversable t, Monad t, Applicative f) => (a -> f (t b)) -> t a -> f (t b)
+flatTraverse f fa = join <$> traverse f fa
 
 search :: AppM [NotionSearchRes]
-search = loadUserSpaces >>= flatTraverse searchImageId >>= witherM
-  (\case
-    (FoundImage imId mId) -> catchError
-      (Just . NotionSearchRes mId <$> loadImageUrl imId)
-      (\err -> liftIO $ putStrLn (T.unpack err) $> Nothing)
-  )
+search =
+  loadUserSpaces
+    >>= flatTraverse
+          (\imId -> catchError
+            (searchImageId imId)
+            (\err -> liftIO (putStrLn (T.unpack err) $> []))
+          )
+    >>= witherM
+          (\case
+            (FoundImage imId mId) -> catchError
+              (Just . NotionSearchRes mId <$> loadImageUrl imId)
+              (\err -> liftIO $ putStrLn (T.unpack err) $> Nothing)
+          )
 
 searchImageId :: UUID -> AppM [FoundImage]
 searchImageId userSpaceId = do
   opts <- AppM $ lift cookieOpts
   let url   = notionUrl ++ "searchBlocks"
       sBody = toJSON $ SearchQuery "add_ocr" "space" userSpaceId 1000
-  logRequest url sBody
-  r <- liftIO $ postWith opts url sBody
-  logResponse r
-  response <- asJSON r
+  response <- reqRes url sBody opts
   let pageRes = response ^. responseBody
       (ids, blockMap) =
         ( (results :: SearchResult -> [UUID]) pageRes
@@ -127,14 +134,19 @@ searchImageId userSpaceId = do
     return $ FoundImage { imageId = image, matchId = match }
 
 
-loadUserSpaces :: AppM [ UUID ]
+loadUserSpaces :: AppM [UUID]
 loadUserSpaces = do
   opts <- AppM $ lift cookieOpts
   let url = notionUrl ++ "loadUserContent"
   logRequest url emptyObject
   r <- liftIO $ postWith opts url emptyObject
   logResponse r
-  return $ maybeToList (r ^? responseBody . key "recordMap" . key "space" . _Object) >>= keys >>= maybeToList .   fromString .   T.unpack 
+  return
+    $ maybeToList (r ^? responseBody . key "recordMap" . key "space" . _Object)
+    >>= keys
+    >>= maybeToList
+    .   fromString
+    .   T.unpack
 
 data Request = Request { table :: String, id :: String} deriving (Generic)
 instance ToJSON Request
@@ -149,10 +161,7 @@ loadImageUrl imageRecordId = do
   opts <- AppM $ lift cookieOpts
   let url   = notionUrl ++ "getRecordValues"
       jBody = toJSON $ RecordReq [Request "block" (toString imageRecordId)]
-  logRequest url jBody
-  r <- liftIO $ postWith opts url jBody
-  logResponse r
-  response <- asJSON r
+  response <- reqRes url jBody opts
   let pageRes = response ^. responseBody
       maybeImageUrl =
         headMay =<< headMay =<< source =<< (properties . value) =<< headMay
@@ -200,3 +209,14 @@ logResponse res = verboseOut (pack $ "Response Status Code: " ++ code)
  where
   code = show $ res ^. responseStatus
   body = C.unpack $ res ^. responseBody
+
+liftJSONErr :: MonadError Text m => JSONError -> m a
+liftJSONErr = throwError . pack . show
+
+reqRes :: FromJSON a => String -> Value -> Options -> AppM (Response a)
+reqRes url body opts = do
+  logRequest url body
+  r <- liftIO $ postWith opts url body
+  logResponse r
+  eitherJson <- liftIO $ try $ asJSON r
+  either liftJSONErr return eitherJson
