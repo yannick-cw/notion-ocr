@@ -1,3 +1,5 @@
+## Currently unmaintained
+
 # notion-ocr: 🖼 to ✍ for Notion
 
 Make your images searchable in Notion!
